@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<style>
+    body {
+        font-family: Arial, Helvetica, sans-serif;
+        padding: 16px;
+    }
+
+    input {
+        padding: 8px;
+        width: 250px;
+        font-size: 15px;
+    }
+
+    button {
+        font-size: 15px;
+        padding: 8px;
+        cursor: pointer;
+    }
+
+    ul {
+        padding: 0px;
+    }
+
+    #loader {
+        margin: 5px;
+        display: none;
+    }
+
+    ul {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .liInfo {
+        list-style: none;
+    }
+</style>
+
+<body>
+    <h1>Информация о стране</h1>
+    <input id="input" placeholder="Введите название страны" />
+    <button id="btn">Поиск</button>
+    <div id="loader">Загрузка...</div>
+    <ul id="result"></ul>
+    <script>
+        const apiByName = "https://restcountries.com/v2/name/";
+        const apiByCode = "https://restcountries.com/v2/alpha/";
+
+        async function getWeather(city) {
+            const res = await fetch(`https://wttr.in/${city}?format=j1`);
+            const data = await res.json();
+            const cond = data.current_condition[0];
+            return `
+    ${cond.weatherDesc[0].value}, 
+    ${cond.temp_C}°C, 
+    Wind: ${cond.winddir16Point} ${cond.windspeedKmph} km/h
+    `;
+        }
+
+        async function getCountryByName(name) {
+            const res = await fetch(`${apiByName}${name}`);
+            const data = await res.json();
+            return data[0];
+        }
+
+        async function getCountryByCode(code) {
+            const res = await fetch(`${apiByCode}${code}`);
+            const data = await res.json();
+            return data;
+        }
+        async function handleSearch() {
+            result.innerHTML = "";
+            loader.style.display = "block";
+
+            try {
+                if (!input.value.trim()) {
+                    throw new Error("Введите название страны!");
+                }
+
+                const country = await getCountryByName(input.value);
+                const capital = country.capital;
+                const weather = await getWeather(capital);
+
+                const li = document.createElement("li");
+                li.style.listStyle = "none";
+                li.innerHTML = `
+            <b>Country:</b> ${country.name}<br>
+            <b>Capital:</b> ${capital}<br>
+            <b>Current weather:</b> ${weather}
+        `;
+                result.appendChild(li);
+
+                if (country.borders) {
+                    const liBorder = document.createElement("li");
+                    liBorder.innerHTML = "<b>Bordering countries:</b>";
+                    liBorder.style.listStyle = "none";
+                    result.appendChild(liBorder);
+
+                    for (let code of country.borders) {
+                        try {
+                            const neighbor = await getCountryByCode(code);
+                            const neighborCapital = neighbor.capital;
+                            if (!neighborCapital) continue;
+
+                            const neighborWeather = await getWeather(neighborCapital);
+
+                            const liN = document.createElement("li");
+                            const liCapital = document.createElement("li");
+                            const liWttr = document.createElement("li");
+
+                            liN.innerHTML = `<b>Country name:</b> ${neighbor.name}`;
+                            liCapital.innerHTML = `<b>Capital:</b> ${neighborCapital}`;
+                            liWttr.innerHTML = `<b>Current weather:</b> ${neighborWeather}`;
+
+                            liN.style.marginLeft = "20px";
+                            liCapital.style.marginLeft = "100px";
+                            liWttr.style.marginLeft = "100px";
+
+                            result.appendChild(liN);
+                            result.appendChild(liCapital);
+                            result.appendChild(liWttr);
+                        } catch (err) {
+                            console.error("Ошибка соседа:", err.message);
+                        }
+                    }
+                }
+
+            } catch (err) {
+                const liError = document.createElement("li");
+                liError.style.listStyle = "none";
+                liError.style.color = "red";
+                liError.textContent = err.message;
+                result.appendChild(liError);
+            } finally {
+                loader.style.display = "none";
+            }
+        }
+        btn.addEventListener("click", handleSearch);
+        input.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                handleSearch();
+            }
+        });
+
+    </script>
+</body>
+
+</html>
