@@ -54,12 +54,33 @@
     const apiByName = "https://restcountries.com/v2/name/";
     const apiByCode = "https://restcountries.com/v2/alpha/";
 
+    // 🔹 Сопоставление некоторых русских названий стран с официальными английскими
+    const specialCases = {
+        "россия": "Russian Federation",
+        "сша": "United States of America",
+        "америка": "United States of America",
+        "великобритания": "United Kingdom",
+        "казахстан": "Kazakhstan",
+        "украина": "Ukraine",
+        "беларусь": "Belarus",
+        "южная корея": "Korea (Republic of)",
+        "северная корея": "Korea (Democratic People's Republic of)",
+        "турция": "Turkey",
+        "германия": "Germany",
+        "франция": "France",
+        "япония": "Japan",
+        "китай": "China",
+        "италия": "Italy",
+        "испания": "Spain",
+        "канада": "Canada"
+    };
+
     async function translateToEnglish(text) {
         const res = await fetch(
             `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`
         );
         const data = await res.json();
-        return data[0][0][0]; // переводим первое найденное слово
+        return data[0][0][0];
     }
 
     async function getWeather(city) {
@@ -70,15 +91,15 @@
     }
 
     async function getCountryByName(name) {
-        const res = await fetch(`${apiByName}${name}`);
+        const res = await fetch(`${apiByName}${encodeURIComponent(name)}`);
+        if (!res.ok) throw new Error("Страна не найдена!");
         const data = await res.json();
         return data[0];
     }
 
     async function getCountryByCode(code) {
         const res = await fetch(`${apiByCode}${code}`);
-        const data = await res.json();
-        return data;
+        return await res.json();
     }
 
     async function handleSearch() {
@@ -86,11 +107,14 @@
         loader.style.display = "block";
 
         try {
-            let countryName = input.value.trim();
+            let countryName = input.value.trim().toLowerCase();
             if (!countryName) throw new Error("Введите название страны!");
 
-            // если введено не по-английски — переводим
-            if (/[а-яА-Я]/.test(countryName)) {
+            // Проверяем по таблице русских названий
+            if (specialCases[countryName]) {
+                countryName = specialCases[countryName];
+            } else if (/[а-яА-Я]/.test(countryName)) {
+                // Если на русском и не найдено в таблице — переводим
                 countryName = await translateToEnglish(countryName);
             }
 
@@ -99,12 +123,15 @@
             const weather = await getWeather(capital);
 
             const li = document.createElement("li");
+            li.style.listStyle = "none";
             li.innerHTML = `
                 <b>Country:</b> ${country.name}<br>
                 <b>Capital:</b> ${capital}<br>
+                <b>Region:</b> ${country.region}<br>
+                <b>Population:</b> ${country.population.toLocaleString()}<br>
+                <img src="${country.flags.png}" width="80"><br>
                 <b>Current weather:</b> ${weather}
             `;
-            li.style.listStyle = "none";
             result.appendChild(li);
 
             if (country.borders) {
